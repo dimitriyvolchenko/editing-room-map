@@ -1,0 +1,53 @@
+name: Build Editing Room
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sync/**'
+      - 'tools/build_sync.py'
+      - 'tests/**'
+      - '.github/workflows/build-editing-room.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: editing-room-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test merge and build single-file app
+        run: |
+          node tests/merge.test.cjs
+          python3 tools/build_sync.py
+          git diff --check
+      - name: Archive tested index
+        uses: actions/upload-artifact@v4
+        with:
+          name: editing-room-v32
+          path: index.html
+          if-no-files-found: error
+          retention-days: 7
+      - name: Commit built index without touching progress files
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'Index already matches source.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Build Editing Room 32: sync and safe force refresh'
+          git push origin HEAD:main
