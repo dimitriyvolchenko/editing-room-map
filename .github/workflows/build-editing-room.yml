@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'sync/**'
+      - 'sw.js'
       - 'tools/build_sync.py'
       - 'tests/**'
       - '.github/workflows/build-editing-room.yml'
@@ -31,13 +32,16 @@ jobs:
       - name: Test merge and build single-file app
         run: |
           node tests/merge.test.cjs
+          node tests/offline.test.cjs
           python3 tools/build_sync.py
           git diff --check
       - name: Archive tested index
         uses: actions/upload-artifact@v4
         with:
-          name: editing-room-v32
-          path: index.html
+          name: editing-room-v33
+          path: |
+            index.html
+            sw.js
           if-no-files-found: error
           retention-days: 7
       - name: Commit built index without touching progress files
@@ -49,5 +53,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'Build Editing Room 32: sync and safe force refresh'
+          git commit -m 'Build Editing Room 33: badges, bookmarks and offline shell'
           git push origin HEAD:main

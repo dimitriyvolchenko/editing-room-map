@@ -18,15 +18,18 @@ def build():
     before_data = re.search(r'<script id="app-data"[^>]*>(.*?)</script>', html, re.S).group(1)
     html = re.sub(r'<!-- er-sync-core:start -->.*?<!-- er-sync-core:end -->\n?', '', html, flags=re.S)
     html = re.sub(r'/\* er-sync-integration:start \*/.*?/\* er-sync-integration:end \*/\n?', '', html, flags=re.S)
+    html = re.sub(r'/\* er-experience:start \*/.*?/\* er-experience:end \*/\n?', '', html, flags=re.S)
     core = (ROOT / 'sync/core.js').read_text()
-    extension = (ROOT / 'sync/integration.js').read_text()
-    assert '</script' not in core.lower() and '</script' not in extension.lower()
+    extension = (ROOT / 'sync/integration.js').read_text().replace("32.0.0-sync", "33.0.0-bookmarks")
+    experience = (ROOT / 'sync/experience.js').read_text()
+    assert '</script' not in core.lower() and '</script' not in extension.lower() and '</script' not in experience.lower()
     marker = '<script>(() => {'
     assert html.count(marker) == 1
     html = html.replace(marker, '<!-- er-sync-core:start -->\n<script id="er-sync-core">\n' + core + '\n</script>\n<!-- er-sync-core:end -->\n' + marker, 1)
     boot = "fillIcons();applyAppIcon();render();if('ResizeObserver' in window)"
     assert html.count(boot) == 1
-    html = html.replace(boot, '/* er-sync-integration:start */\n' + extension + '\n/* er-sync-integration:end */\n' + boot, 1)
+    html = html.replace(boot, '/* er-sync-integration:start */\n' + extension + '\n/* er-sync-integration:end */\n' + '/* er-experience:start */\n' + experience + '\n/* er-experience:end */\n' + boot, 1)
+    html = html.replace("if(initialHash)requestAnimationFrame(()=>jumpTo(initialHash.mode,initialHash.id));", "restoreExperience();")
     assert re.search(r'<script id="app-data"[^>]*>(.*?)</script>', html, re.S).group(1) == before_data
     with tempfile.TemporaryDirectory() as temp:
         for i, (attrs, script) in enumerate(re.findall(r'<script([^>]*)>(.*?)</script>', html, re.S)):
@@ -36,7 +39,7 @@ def build():
             path.write_text(script)
             subprocess.run(['node', '--check', str(path)], check=True)
     TARGET.write_text(html, encoding='utf-8')
-    print('Built Editing Room 32.0.0-sync; original app-data unchanged.')
+    print('Built Editing Room 33.0.0-bookmarks; original app-data unchanged.')
 
 if __name__ == '__main__':
     build()
