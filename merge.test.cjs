@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('node:assert/strict');
+const M=require('../sync/core.js');
+let count=0;
+function test(name,fn){fn();count++;console.log('PASS '+name);}
+const copy=M.copy;
+test('independent checkmarks merge',()=>assert.deepEqual(M.merge({}, {a:true},{b:true}).value,{a:true,b:true}));
+test('uncheck is preserved',()=>assert.deepEqual(M.merge({a:true},{},{a:true,b:true}).value,{b:true}));
+test('identical changes need no choice',()=>assert.equal(M.merge('old','new','new').conflicts.length,0));
+test('conflicting note does not silently choose',()=>assert.equal(M.merge('old','mine','theirs').conflicts.length,1));
+test('choice only affects competing field',()=>assert.deepEqual(M.merge({note:'a'},{note:'b',x:1},{note:'c',y:2},()=> 'remote').value,{note:'c',x:1,y:2}));
+test('custom steps merge by id',()=>assert.equal(M.merge([], [{id:'c1234',text:'A'}],[{id:'c5678',text:'B'}]).value.length,2));
+test('deleting a custom step survives stale device',()=>assert.deepEqual(M.merge([{id:'c1234',text:'A'}],[],[{id:'c1234',text:'A'}]).value,[]));
+test('deleting versus editing step requires choice',()=>assert.equal(M.merge([{id:'c1234',text:'A'}],[],[{id:'c1234',text:'B'}]).conflicts.length,1));
+test('reset does not erase independent remote edit',()=>assert.deepEqual(M.merge({a:true},{},{a:true,b:true}).value,{b:true}));
+test('goal merge follows baseline',()=>assert.equal(M.merge('old','old','new').value,'new'));
+test('local-only navigation ignored',()=>{let a={workspaces:{mobile:{scroll:42,cursor:'mt1'},davinci:{}}},b={workspaces:{mobile:{scroll:0,cursor:'mt2'},davinci:{}}};assert(M.equal(M.project(a),M.project(b)));});
+test('credential/UI fields never enter projection',()=>{let a={token:'secret',ui:{appIcon:'retro'},workspaces:{mobile:{goal:'Работа',token:'secret'},davinci:{}}};assert(!JSON.stringify(M.project(a)).includes('secret'));});
+test('prototype pollution is rejected',()=>assert.throws(()=>M.merge({},JSON.parse('{"__proto__":{"x":1}}'),{a:1})));
+test('in-flight edit rebases onto acknowledged upload',()=>assert.deepEqual(M.merge({note:'old'}, {note:'newer',a:true},{note:'remote',b:true},()=> 'local').value,{note:'newer',a:true,b:true}));
+test('workspace isolation',()=>{const b=M.empty(),a=copy(b),r=copy(b);a.mobile.marks.m=true;r.davinci.marks.d=true;const v=M.merge(b,a,r).value;assert(v.mobile.marks.m);assert(v.davinci.marks.d);assert(!v.mobile.marks.d);});
+console.log(count+' merge tests passed');
